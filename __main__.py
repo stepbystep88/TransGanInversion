@@ -2,17 +2,16 @@ import argparse
 
 from torch.utils.data import DataLoader
 
-from .model import BERT
-from .trainer import BERTTrainer
-from .dataset import BERTDataset, WordVocab
+from model import BERT
+from trainer import BERTTrainer
+from dataset import BERTDataset
 
 
 def train():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-c", "--train_dataset", required=True, type=str, help="train dataset for train bert")
-    parser.add_argument("-t", "--test_dataset", type=str, default=None, help="test set for evaluate train set")
-    parser.add_argument("-v", "--vocab_path", required=True, type=str, help="built vocab model path with bert-vocab")
+    parser.add_argument("-t", "--test", type=str, default=None, help="test set for evaluate train set")
     parser.add_argument("-o", "--output_path", required=True, type=str, help="ex)output/bert.model")
 
     parser.add_argument("-hs", "--hidden", type=int, default=256, help="hidden size of transformer model")
@@ -37,17 +36,11 @@ def train():
 
     args = parser.parse_args()
 
-    print("Loading Vocab", args.vocab_path)
-    vocab = WordVocab.load_vocab(args.vocab_path)
-    print("Vocab Size: ", len(vocab))
-
     print("Loading Train Dataset", args.train_dataset)
-    train_dataset = BERTDataset(args.train_dataset, vocab, seq_len=args.seq_len,
-                                corpus_lines=args.corpus_lines, on_memory=args.on_memory)
+    train_dataset = BERTDataset(args.train_dataset)
 
     print("Loading Test Dataset", args.test_dataset)
-    test_dataset = BERTDataset(args.test_dataset, vocab, seq_len=args.seq_len, on_memory=args.on_memory) \
-        if args.test_dataset is not None else None
+    test_dataset = BERTDataset(args.test_dataset) if args.test_dataset is not None else None
 
     print("Creating Dataloader")
     train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
