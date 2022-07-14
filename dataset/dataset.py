@@ -3,6 +3,7 @@ import torch
 
 import numpy as np
 import scipy.io as scio
+from sklearn.preprocessing import MinMaxScaler
 
 
 class TrainingItem:
@@ -36,14 +37,18 @@ class TrainingData:
     def __init__(self, training_data_path):
         data = scio.loadmat(training_data_path)
         self.data = data
-        self.well_data = data['wellData'].astype(np.float32)
-        self.d = data['prestackFreeNoise']
-        self.d_noise = data['prestackNoise']
+        well_data = data['wellData'][:, 1:, :].astype(np.float32)
+        scaler = MinMaxScaler()
+        v_scaled = scaler.fit_transform(np.reshape(well_data, [-1, 4]))
+        self.well_data = np.reshape(v_scaled, (well_data.shape[0], -1, 4))
 
-        self.vp_init = data['vp_init'].astype(np.float32)
-        self.vs_init = data['vs_init'].astype(np.float32)
-        self.rho_init = data['rho_init'].astype(np.float32)
-        self.depth = data['depth'].astype(np.float32)
+        self.d = data['prestackFreeNoise'][:, 1:]
+        self.d_noise = data['prestackNoise'][:, 1:]
+
+        self.vp_init = data['vp_init'][:, 1:].astype(np.float32)
+        self.vs_init = data['vs_init'][:, 1:].astype(np.float32)
+        self.rho_init = data['rho_init'][:, 1:].astype(np.float32)
+        self.depth = data['depth'][:, 1:].astype(np.float32)
 
         self.wavelet = data['wavelet'].astype(np.float32)
         self.dt = data['dt']

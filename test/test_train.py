@@ -4,19 +4,21 @@ from dataset import BERTDataset
 from model import BERT, TransInversion
 from trainer import BERTTrainer
 
-batch_size = 32
+batch_size = 8
 num_workers = 0
-hidden = 384
-n_layers = 4
+hidden = 192
+n_layers = 6
 attn_heads = 8
 lr = 1e-3
 adam_beta1 = 0.9
 adam_beta2 = 0.999
 weight_decay = 0.01
-with_cuda = False
-cuda_devices = []
-log_freq = 1
-epochs = 10000
+with_cuda = True
+cuda_devices = [0]
+log_freq = 10
+epochs = 300
+miu = 0.01
+loss_save_path = "../data/convergence.html"
 output_path = "../data/trans_gan_inversion.model"
 
 train_file = 'D:/code_projects/matlab_projects/src/trans_gan_inversion/training_data.mat'
@@ -41,6 +43,7 @@ trans_inversion = TransInversion(bert, n_layers=n_layers)
 print("Creating BERT Trainer")
 trainer = BERTTrainer(bert, train_dataloader=train_data_loader, test_dataloader=test_data_loader,
                       lr=lr, betas=(adam_beta1, adam_beta2), weight_decay=weight_decay,
+                      miu=miu, loss_save_path=loss_save_path,
                       with_cuda=with_cuda, cuda_devices=cuda_devices, log_freq=log_freq)
 
 print("Training Start")

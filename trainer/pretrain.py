@@ -7,6 +7,8 @@ from model import TransInversion, BERT
 from trainer.optim_schedule import ScheduledOptim
 
 import tqdm
+import pandas as pd
+import plotly.express as px
 
 
 class BERTTrainer:
@@ -22,7 +24,7 @@ class BERTTrainer:
 
     def __init__(self, bert: BERT, train_dataloader: DataLoader, test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999), weight_decay: float = 0.01, warmup_steps=10000,
-                 with_cuda: bool = True, cuda_devices=None, log_freq: int = 10):
+                 with_cuda: bool = True, cuda_devices=None, log_freq: int = 10, miu=0.01, loss_save_path=None):
         """
         :param bert: BERT model which you want to train
         :param vocab_size: total word vocab size
@@ -61,6 +63,10 @@ class BERTTrainer:
         self.criterion = nn.MSELoss()
 
         self.log_freq = log_freq
+        self.miu = miu
+        self.loss_save_path = loss_save_path
+        self.train_loss_info = []
+        self.test_loss_info = []
 
         print("Total Parameters:", sum([p.nelement() for p in self.model.parameters()]))
 
@@ -69,6 +75,12 @@ class BERTTrainer:
 
     def test(self, epoch):
         self.iteration(epoch, self.test_data, train=False)
+
+    @staticmethod
+    def batched_index_select(t, dim, inds):
+        dummy = inds.unsqueeze(2).expand(inds.size(0), inds.size(1), t.size(2))
+        out = t.gather(dim, dummy)  # b x e x f
+        return out
 
     def iteration(self, epoch, data_loader, train=True):
         """
@@ -90,24 +102,27 @@ class BERTTrainer:
                               bar_format="{l_bar}{r_bar}")
 
         avg_loss = 0.0
-        total_correct = 0
-        total_element = 0
+        avg_d_loss = 0.0
+        avg_well_loss = 0.0
 
-        for i, data in data_iter:
+        for i, orig_data in data_iter:
             # 0. batch_data will be sent into the device(GPU or cpu)
-            data = {key: value.to(self.device) for key, value in data.items()}
+            data = {key: value.to(self.device) for key, value in orig_data.items()}
 
             # 1. forward the next_sentence_prediction and masked_lm model
             new_d, new_well = self.model.forward(data["masked_d"], data["init_data"])
+            masked_index = data["masked_index"].to(torch.long)
+            masked_d = self.batched_index_select(data["d"], 1, masked_index)
+            masked_new_d = self.batched_index_select(new_d, 1, masked_index)
 
             # 2-1. NLL(negative log likelihood) loss of is_next classification result
-            d_loss = self.criterion(new_d, data["d"])
+            d_loss = self.criterion(masked_d, masked_new_d)
 
             # 2-2. NLLLoss of predicting masked token word
             well_loss = self.criterion(new_well, data["well_data"])
 
             # 2-3. Adding next_loss and mask_loss : 3.4 Pre-training Procedure
-            loss = d_loss + well_loss
+            loss = d_loss + self.miu * well_loss
 
             # 3. backward and optimization only in train
             if train:
@@ -116,18 +131,49 @@ class BERTTrainer:
                 self.optim_schedule.step_and_update_lr()
 
             avg_loss += loss.item()
+            avg_d_loss += d_loss.item()
+            avg_well_loss += well_loss.item()
 
+            precision = 4
             post_fix = {
+                "type": str_code,
                 "epoch": epoch,
                 "iter": i,
-                "avg_loss": avg_loss / (i + 1),
-                "loss": loss.item()
+                "avg_loss": round(avg_loss / (i + 1), precision),
+                "avg_d_loss": round(avg_d_loss / (i + 1), precision),
+                "avg_well_loss": round(avg_well_loss / (i + 1), precision),
+                "loss": round(loss.item(), precision),
+                "d_loss": round(d_loss.item(), precision),
+                "well_loss": round(well_loss.item(), precision)
             }
+            if train:
+                self.train_loss_info.append(post_fix)
+            else:
+                self.test_loss_info.append(post_fix)
 
             if i % self.log_freq == 0:
                 data_iter.write(str(post_fix))
+                if self.loss_save_path:
+                    self.save_loss_as_html(len(data_iter))
 
         print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter))
+
+    def save_loss_as_html(self, n):
+        """
+        保存收敛曲线
+        :param n:
+        """
+        save_path = self.loss_save_path
+        df = pd.DataFrame(self.train_loss_info)
+        df['step'] = n * df['epoch'] + df['iter']
+
+        if self.test_loss_info:
+            df2 = pd.DataFrame(self.test_loss_info)
+            df2['step'] = n * df2['epoch'] + df['iter']
+            df = pd.concat([df, df2])
+        for loss_name in ["avg_loss", "avg_d_loss", "avg_well_loss", "loss", "d_loss", "well_loss"]:
+            fig = px.line(df, x="step", y=loss_name, color='type', log_y=True)
+            fig.write_html(save_path.replace(".html", f"_{loss_name}.html"))
 
     def save(self, epoch, file_path="output/bert_trained.model"):
         """

@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from model.embedding import BERTEmbedding
-from model.transformer import TransformerDecoderBlock
+from model.transformer import TransformerDecoderBlock, TransformerEncoderBlock
 from .bert import BERT
 
 
@@ -38,14 +38,14 @@ class TransInversion(nn.Module):
         super().__init__()
         self.bert = bert
         self.decoder = Decoder(self.bert.hidden, n_layers=n_layers, dropout=dropout)
-        self.head_d = DecodeHead(self.bert.hidden, self.bert.angle_num)
-        self.head_well_data = DecodeHead(self.bert.hidden, 3)   # vp, vs, rho 三个属性
+        self.head_d = DecodeHead(self.bert.hidden, self.bert.angle_num, attn_heads=8)
+        self.head_well_data = DecodeHead(self.bert.hidden, 3, attn_heads=3)   # vp, vs, rho 三个属性
 
     def forward(self, d, init_data):
         d_encoding = self.bert(d)
-        init_well_encoding = self.decoder(init_data, d_encoding)
-
         d_new = self.head_d(d_encoding)
+
+        init_well_encoding = self.decoder(init_data, d_encoding)
         well_new = self.head_well_data(init_well_encoding)
         return d_new, well_new
 
@@ -56,14 +56,19 @@ class DecodeHead(nn.Module):
     n-class classification problem, n-class = vocab_size
     """
 
-    def __init__(self, hidden, out_channel):
+    def __init__(self, hidden, out_channel, attn_heads=3, dropout=0.1, n_layers=2):
         """
         :param hidden: output size of BERT model
         """
         super().__init__()
+        self.blocks = nn.ModuleList(
+            [TransformerEncoderBlock(hidden, attn_heads, hidden * 4, dropout) for _ in range(n_layers)])
         self.linear1 = nn.Linear(hidden, hidden)
         self.activate = nn.ReLU()
         self.linear2 = nn.Linear(hidden, out_channel)
 
     def forward(self, x):
+        for block in self.blocks:
+            x = block(x, None)
+
         return self.linear2(self.activate(self.linear1(x)))
