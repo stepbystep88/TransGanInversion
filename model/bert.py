@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from .transformer import TransformerBlock
+from .transformer import TransformerEncoderBlock
 from .embedding import BERTEmbedding
 
 
@@ -20,6 +20,7 @@ class BERT(nn.Module):
 
         super().__init__()
         self.hidden = hidden
+        self.angle_num = angle_num
         self.n_layers = n_layers
         self.attn_heads = attn_heads
 
@@ -33,14 +34,14 @@ class BERT(nn.Module):
 
         # multi-layers transformer blocks, deep network
         self.transformer_blocks = nn.ModuleList(
-            [TransformerBlock(hidden, attn_heads, hidden * 4, dropout) for _ in range(n_layers)])
+            [TransformerEncoderBlock(hidden, attn_heads, hidden * 4, dropout) for _ in range(n_layers)])
 
     def forward(self, x):
         # attention masking for padded token
         # torch.ByteTensor([batch_size, 1, seq_len, seq_len)
         # mask = (x > 0).unsqueeze(1).repeat(1, x.size(1), 1).unsqueeze(1)
         mask = None
-        
+
         # embedding the indexed sequence to sequence of vectors
         x = self.embedding(x)
 

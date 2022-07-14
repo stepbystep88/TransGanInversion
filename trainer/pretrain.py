@@ -3,8 +3,8 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from ..model import BERTLM, BERT
-from .optim_schedule import ScheduledOptim
+from model import TransInversion, BERT
+from trainer.optim_schedule import ScheduledOptim
 
 import tqdm
 
@@ -20,8 +20,7 @@ class BERTTrainer:
 
     """
 
-    def __init__(self, bert: BERT, vocab_size: int,
-                 train_dataloader: DataLoader, test_dataloader: DataLoader = None,
+    def __init__(self, bert: BERT, train_dataloader: DataLoader, test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999), weight_decay: float = 0.01, warmup_steps=10000,
                  with_cuda: bool = True, cuda_devices=None, log_freq: int = 10):
         """
@@ -43,7 +42,7 @@ class BERTTrainer:
         # This BERT model will be saved every epoch
         self.bert = bert
         # Initialize the BERT Language Model, with BERT model
-        self.model = BERTLM(bert, vocab_size).to(self.device)
+        self.model = TransInversion(bert).to(self.device)
 
         # Distributed GPU training if CUDA can detect more than 1 GPU
         if with_cuda and torch.cuda.device_count() > 1:
@@ -59,7 +58,7 @@ class BERTTrainer:
         self.optim_schedule = ScheduledOptim(self.optim, self.bert.hidden, n_warmup_steps=warmup_steps)
 
         # Using Negative Log Likelihood Loss function for predicting the masked_token
-        self.criterion = nn.NLLLoss(ignore_index=0)
+        self.criterion = nn.MSELoss()
 
         self.log_freq = log_freq
 
@@ -99,16 +98,16 @@ class BERTTrainer:
             data = {key: value.to(self.device) for key, value in data.items()}
 
             # 1. forward the next_sentence_prediction and masked_lm model
-            next_sent_output, mask_lm_output = self.model.forward(data["bert_input"], data["segment_label"])
+            new_d, new_well = self.model.forward(data["masked_d"], data["init_data"])
 
             # 2-1. NLL(negative log likelihood) loss of is_next classification result
-            next_loss = self.criterion(next_sent_output, data["is_next"])
+            d_loss = self.criterion(new_d, data["d"])
 
             # 2-2. NLLLoss of predicting masked token word
-            mask_loss = self.criterion(mask_lm_output.transpose(1, 2), data["bert_label"])
+            well_loss = self.criterion(new_well, data["well_data"])
 
             # 2-3. Adding next_loss and mask_loss : 3.4 Pre-training Procedure
-            loss = next_loss + mask_loss
+            loss = d_loss + well_loss
 
             # 3. backward and optimization only in train
             if train:
@@ -116,25 +115,19 @@ class BERTTrainer:
                 loss.backward()
                 self.optim_schedule.step_and_update_lr()
 
-            # next sentence prediction accuracy
-            correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).sum().item()
             avg_loss += loss.item()
-            total_correct += correct
-            total_element += data["is_next"].nelement()
 
             post_fix = {
                 "epoch": epoch,
                 "iter": i,
                 "avg_loss": avg_loss / (i + 1),
-                "avg_acc": total_correct / total_element * 100,
                 "loss": loss.item()
             }
 
             if i % self.log_freq == 0:
                 data_iter.write(str(post_fix))
 
-        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
-              total_correct * 100.0 / total_element)
+        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter))
 
     def save(self, epoch, file_path="output/bert_trained.model"):
         """

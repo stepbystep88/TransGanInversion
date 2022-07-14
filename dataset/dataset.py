@@ -7,9 +7,9 @@ import scipy.io as scio
 
 class TrainingItem:
     def __init__(self, well_data, vp_init, vs_init, rho_init, d):
-        self.well_data = well_data
-        self.init_data = np.hstack([vp_init, vs_init, rho_init])
-        self.d = d
+        self.well_data = well_data[:, 1:]
+        self.init_data = np.array([vp_init, vs_init, rho_init]).transpose()
+        self.d = np.vstack([d, d[-1, :]])   # d
         self.masked_index = None
         self.masked_d = None
 

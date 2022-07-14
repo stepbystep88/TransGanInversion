@@ -9,4 +9,5 @@ num_epoches = 100
 for epoch in range(num_epoches):
     for i, data in enumerate(data_loader):
         print(data)
+        exit(0)
 

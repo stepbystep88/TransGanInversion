@@ -10,5 +10,6 @@ data_loader = DataLoader(ds)
 num_epoches = 100
 for epoch in range(num_epoches):
     for i, data in enumerate(data_loader):
-        model(data['masked_d'])
-
+        output = model(data['masked_d'])
+        print(output)
+        exit(0)
