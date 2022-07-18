@@ -18,13 +18,11 @@ class BERT(nn.Module):
         :param dropout: dropout rate
         """
 
-        super().__init__()
+        super(BERT, self).__init__()
         self.hidden = hidden
         self.angle_num = angle_num
         self.n_layers = n_layers
         self.attn_heads = attn_heads
-
-        self.batch_norm = nn.BatchNorm1d(angle_num)
 
         # paper noted they used 4*hidden_size for ff_network_hidden_size
         self.feed_forward_hidden = hidden * 4
@@ -36,16 +34,9 @@ class BERT(nn.Module):
         self.transformer_blocks = nn.ModuleList(
             [TransformerEncoderBlock(hidden, attn_heads, hidden * 4, dropout) for _ in range(n_layers)])
 
-    def forward(self, x):
-        # attention masking for padded token
-        # torch.ByteTensor([batch_size, 1, seq_len, seq_len)
-        # mask = (x > 0).unsqueeze(1).repeat(1, x.size(1), 1).unsqueeze(1)
-        mask = None
-
-        # embedding the indexed sequence to sequence of vectors
+    def forward(self, x, mask):
         x = self.embedding(x)
 
-        # running over multiple transformer blocks
         for transformer in self.transformer_blocks:
             x = transformer.forward(x, mask)
 

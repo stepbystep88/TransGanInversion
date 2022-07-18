@@ -1,55 +1,85 @@
+import argparse
+
 from torch.utils.data import DataLoader
 
 from dataset import BERTDataset
-from model import BERT, TransInversion
+from model import TransInversion, Discriminator
 from trainer import BERTTrainer
 
-batch_size = 8
-num_workers = 0
-hidden = 192
-n_layers = 6
-attn_heads = 8
-lr = 1e-3
-adam_beta1 = 0.9
-adam_beta2 = 0.999
-weight_decay = 0.01
-with_cuda = True
-cuda_devices = [0]
-log_freq = 10
-epochs = 300
-miu = 0.01
-loss_save_path = "../data/convergence.html"
-output_path = "../data/trans_gan_inversion.model"
 
-train_file = 'D:/code_projects/matlab_projects/src/trans_gan_inversion/training_data.mat'
-test_file = 'D:/code_projects/matlab_projects/src/trans_gan_inversion/test_data.mat'
-# test_file = None
+def train():
+    parser = argparse.ArgumentParser()
 
-print("Loading Train Dataset", train_file)
-train_dataset = BERTDataset(train_file)
+    parser.add_argument("-c", "--train_file", type=str, help="train dataset for train bert",
+                        default='D:/code_projects/matlab_projects/src/trans_gan_inversion/training_data.mat')
+    parser.add_argument("-t", "--test_file", type=str, help="test set for evaluate train set",
+                        default=None)
+    # D:/code_projects/matlab_projects/src/trans_gan_inversion/test_data.mat'
+    parser.add_argument("-o", "--output_path", default='../data', type=str, help="")
 
-print("Loading Test Dataset", test_file)
-test_dataset = BERTDataset(test_file) if test_file is not None else None
+    parser.add_argument("-hs", "--hidden", type=int, default=384, help="hidden size of transformer model")
+    parser.add_argument("-l", "--n_layers", type=int, default=6, help="number of layers")
+    parser.add_argument("-ld", "--n_decoder_layers", type=int, default=6, help="number of layers")
+    parser.add_argument("-a", "--attn_heads", type=int, default=6, help="number of attention heads")
 
-print("Creating Dataloader")
-train_data_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers)
-test_data_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers) \
-    if test_dataset is not None else None
+    parser.add_argument("-b", "--batch_size", type=int, default=8, help="number of batch_size")
+    parser.add_argument("-e", "--epochs", type=int, default=1000, help="number of epochs")
+    parser.add_argument("-w", "--num_workers", type=int, default=0, help="dataloader worker size")
 
-print("Building BERT model")
-bert = BERT(angle_num=train_dataset.angle_num, hidden=hidden, n_layers=n_layers, attn_heads=attn_heads)
-trans_inversion = TransInversion(bert, n_layers=n_layers)
+    parser.add_argument("--with_cuda", type=bool, default=True, help="training with CUDA: true, or false")
+    parser.add_argument("--log_freq", type=int, default=2, help="printing loss every n iter: setting n")
+    parser.add_argument("--cuda_devices", type=int, nargs='+', default=[0], help="CUDA device ids")
 
-print("Creating BERT Trainer")
-trainer = BERTTrainer(bert, train_dataloader=train_data_loader, test_dataloader=test_data_loader,
-                      lr=lr, betas=(adam_beta1, adam_beta2), weight_decay=weight_decay,
-                      miu=miu, loss_save_path=loss_save_path,
-                      with_cuda=with_cuda, cuda_devices=cuda_devices, log_freq=log_freq)
+    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate of adam")
+    parser.add_argument("--weight_decay", type=float, default=0.01, help="weight_decay of adam")
+    parser.add_argument("--adam_beta1", type=float, default=0.9, help="adam first beta value")
+    parser.add_argument("--adam_beta2", type=float, default=0.999, help="adam first beta value")
 
-print("Training Start")
-for epoch in range(epochs):
-    trainer.train(epoch)
-    trainer.save(epoch, output_path)
+    parser.add_argument("--miu0", type=float, default=1, help="miu0")
+    parser.add_argument("--miu1", type=float, default=1, help="miu1")
+    parser.add_argument("--miu2", type=float, default=0.1, help="miu2")
 
-    if test_data_loader is not None:
-        trainer.test(epoch)
+    parser.add_argument("--dropout", type=float, default=0.1, help="dropout")
+
+    args = parser.parse_args()
+
+    loss_save_path = f"{args.output_path}/convergence.html"
+    output_model_path = f"{args.output_path}/trans_gan_inversion.model"
+
+    print("Loading Train Dataset", args.train_file)
+    train_dataset = BERTDataset(args.train_file)
+
+    print("Loading Test Dataset", args.test_file)
+    test_dataset = BERTDataset(args.test_file) if args.test_file is not None else None
+
+    print("Creating Dataloader")
+    train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
+    test_data_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers) \
+        if test_dataset is not None else None
+
+    print("Building BERT model")
+    generator = TransInversion(train_dataset.angle_num, hidden=args.hidden,
+                               n_layers=args.n_layers, n_decoder_layers=args.n_layers,
+                               attn_heads=args.attn_heads, dropout=args.dropout)
+
+    discriminator = Discriminator(hidden=args.hidden, n_layers=args.n_layers, attn_heads=args.attn_heads,
+                                  dropout=args.dropout)
+
+    print("Creating BERT Trainer")
+    trainer = BERTTrainer(generator, discriminator, args.hidden, args.attn_heads,
+                          train_dataloader=train_data_loader, test_dataloader=test_data_loader,
+                          lr=args.lr, betas=(args.adam_beta1, args.adam_beta2), weight_decay=args.weight_decay,
+                          with_cuda=args.with_cuda, cuda_devices=args.cuda_devices, log_freq=args.log_freq,
+                          loss_save_path=loss_save_path, miu=(args.miu0, args.miu1, args.miu2))
+
+    print("Training Start")
+    for epoch in range(args.epochs):
+        trainer.train(epoch)
+        trainer.save(epoch, output_model_path)
+
+        if test_data_loader is not None:
+            trainer.test(epoch)
+
+
+if __name__ == '__main__':
+    train()

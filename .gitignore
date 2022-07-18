@@ -1,3 +1,7 @@
 
 *.ep2
 *.pyc
+*.ep0
+/data
+*.zip
+*.pyc

@@ -150,6 +150,13 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python.test" />
+      <item itemvalue="Python.test_bert" />
+      <item itemvalue="Python.test_dataset" />
+      <item itemvalue="Python.test_train" />
+      <item itemvalue="Python.test_trans_inversion" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.test_train" />
@@ -191,8 +198,8 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/trainer/pretrain.py</url>
-          <line>155</line>
-          <option name="timeStamp" value="35" />
+          <line>168</line>
+          <option name="timeStamp" value="50" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

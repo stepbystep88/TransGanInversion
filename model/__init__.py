@@ -1,2 +1,3 @@
 from .bert import BERT
-from .language_model import TransInversion
+from .generator import TransInversion
+from .discriminator import Discriminator
