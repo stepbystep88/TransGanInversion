@@ -3,12 +3,15 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from model import TransInversion, BERT
+from dataset.gen_mask import gen_mask
 from trainer.optim_schedule import ScheduledOptim
 
 import tqdm
+import os
 import pandas as pd
 import plotly.express as px
+
+from trainer.utils import save_cmp_as_html
 
 
 class BERTTrainer:
@@ -22,10 +25,11 @@ class BERTTrainer:
 
     """
 
-    def __init__(self, generator, discriminator, hidden, attn_heads,
+    def __init__(self, generator, discriminator, hidden, attn_heads, well_trans,
                  train_dataloader: DataLoader, test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999), weight_decay: float = 0.01, warmup_steps=10000,
                  with_cuda: bool = True, cuda_devices=None, log_freq: int = 10,
+                 mask_prob=0.2, mask_noise_prob=0.5,
                  miu=(10, 1, 0.1), loss_save_path=None):
         """
         :param bert: BERT model which you want to train
@@ -42,6 +46,9 @@ class BERTTrainer:
         # Setup cuda device for BERT training, argument -c, --cuda should be true
         cuda_condition = torch.cuda.is_available() and with_cuda
         self.device = torch.device("cuda:0" if cuda_condition else "cpu")
+
+        self.well_trans = well_trans
+
         # Initialize the BERT Language Model, with BERT model
         self.generator = generator.to(self.device)
         self.discriminator = discriminator.to(self.device)
@@ -56,10 +63,13 @@ class BERTTrainer:
         self.train_data = train_dataloader
         self.test_data = test_dataloader
         self.attn_heads = attn_heads
+        self.mask_prob = mask_prob
+        self.mask_noise_prob = mask_noise_prob
 
         # Setting the Adam optimizer with hyper-param
         self.adam_G = Adam(self.generator.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
         self.optim_G = ScheduledOptim(self.adam_G, hidden, n_warmup_steps=warmup_steps)
+
         self.adam_D = Adam(self.discriminator.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
         self.optim_D = ScheduledOptim(self.adam_D, hidden, n_warmup_steps=warmup_steps)
 
@@ -91,10 +101,9 @@ class BERTTrainer:
     def train_D(self, train, data):
         well_label = data["well_data"]
         batch_szie = well_label.shape[0]
-        mask = data["mask"].unsqueeze(1).repeat(1, self.attn_heads, 1, 1)
 
         with torch.no_grad():
-            _, well_predict = self.generator.forward(data["masked_d"], data["init_data"], mask)
+            _, _, well_predict = self.generator.forward(data["masked_d"], data["init_data"])
 
         # Forward with real data
         real_label = torch.ones(batch_szie).to(self.device)
@@ -117,32 +126,38 @@ class BERTTrainer:
         lossD = lossD_real + lossD_fake
         return lossD, lossD_real, lossD_fake
 
+    def mse_loss(self, x, y):
+        residual = x - y
+        return torch.sum(residual * residual)
+
     def train_G(self, train, data):
         well_label = data["well_data"]
         batch_szie = well_label.shape[0]
-        mask = data["mask"].unsqueeze(1).repeat(1, self.attn_heads, 1, 1)
 
-        d_predict, well_predict = self.generator.forward(data["masked_d"], data["init_data"], mask)
-        masked_index = data["masked_index"].to(torch.long)
-        masked_d = self.batched_index_select(data["d"], 1, masked_index)
-        masked_d_predict = self.batched_index_select(d_predict, 1, masked_index)
-
-        d_loss = self.mse_criterion(masked_d, masked_d_predict)
-        well_loss = self.mse_criterion(well_predict, well_label)
+        d_predict, well_predict1, well_predict2 = self.generator.forward(data["masked_d"], data["init_data"])
+        masked_d = self.batched_index_select(data["d"], 1, data["masked_index"])
+        masked_d_predict = self.batched_index_select(d_predict, 1, data["masked_index"])
+        #
+        d_loss = self.mse_loss(masked_d, masked_d_predict)
+        well_loss1 = self.mse_loss(well_label, well_predict1)
+        well_loss2 = self.mse_loss(well_label, well_predict2)
 
         # loss of discriminator
-        real_label = torch.ones(batch_szie).to(self.device)
-        real_logit = self.discriminator(well_predict).flatten()
-        lossG_D = self.bce_criterion(real_logit, real_label)
+        # real_label = torch.ones(batch_szie).to(self.device)
+        # real_logit = self.discriminator(well_predict2).flatten()
+        # lossG_D = self.bce_criterion(real_logit, real_label)
+        lossG_D = d_loss
 
-        lossG = self.miu[0] * d_loss + self.miu[1] * well_loss + self.miu[2] * lossG_D
-
+        lossG = self.miu[0] * d_loss + self.miu[1] * (well_loss1 + well_loss2) + self.miu[2] * lossG_D
         if train:
             self.optim_G.zero_grad()
             lossG.backward()
             self.optim_G.step_and_update_lr()
             
-        return lossG, d_loss, well_loss, lossG_D
+        # return lossG, d_loss, well_loss, lossG_D
+        loss = (lossG, lossG_D, d_loss, well_loss1, well_loss2)
+        predict = d_predict, well_predict1, well_predict2
+        return predict, loss
 
     def iteration(self, epoch, data_loader, train=True):
         """
@@ -165,21 +180,37 @@ class BERTTrainer:
 
         for i, orig_data in data_iter:
             # 0. batch_data will be sent into the device(GPU or cpu)
-            data = {key: value.to(self.device) for key, value in orig_data.items()}
-            lossD, lossD_real, lossD_fake = self.train_D(train, data)
-            lossG, d_loss, well_loss, lossG_D = self.train_G(train, data)
+            data = gen_mask(orig_data, self.attn_heads, mask_prob=self.mask_prob, mask_noise_prob=self.mask_noise_prob)
+            data = {key: value.to(self.device) for key, value in data.items()}
+
+            # lossD, lossD_real, lossD_fake = self.train_D(train, data)
+            well_label = data["well_data"]
+            predict, loss = self.train_G(train, data)
+            lossG, lossG_D, d_loss, well_loss1, well_loss2 = loss
+            d_predict, well_predict1, well_predict2 = predict
+
+            well_predict1 = well_predict1.cpu().detach().numpy()
+            well_predict2 = well_predict2.cpu().detach().numpy()
+            well_label = well_label.cpu().detach().numpy()
 
             post_fix = {
                 "type": str_code,
                 "epoch": epoch,
                 "step": epoch * len(data_iter) + i,
                 "iter": i,
-                "lossD": lossD.item(),
-                "lossD_real": lossD_real.item(),
-                "lossD_fake": lossD_fake.item(),
+                # "lossD": lossD.item(),
+                # "lossD_real": lossD_real.item(),
+                # "lossD_fake": lossD_fake.item(),
                 "lossG": lossG.item(),
                 "d_loss": d_loss.item(),
-                "well_loss": well_loss.item(),
+                "well_loss1": well_loss1.item(),
+                "well_loss2": well_loss2.item(),
+                "min_predict1": well_predict1[:, :, 0].min(),
+                "max_predict1": well_predict1[:, :, 0].max(),
+                "min_predict2": well_predict2[:, :, 0].min(),
+                "max_predict2": well_predict2[:, :, 0].max(),
+                "min_label": well_label[:, :, 0].min(),
+                "max_label": well_label[:, :, 0].max(),
                 "lossG_D": lossG_D.item()
             }
 
@@ -192,6 +223,11 @@ class BERTTrainer:
                 data_iter.write(str(post_fix))
                 if self.loss_save_path:
                     self.save_loss_as_html(len(data_iter))
+
+            if i % 30 == 0:
+                save_cmp_as_html(data["d"], d_predict, data["masked_d"], self.well_trans, data["init_data"],
+                                 well_label, well_predict1, well_predict2,
+                                 output_path=f"{os.path.dirname(os.path.dirname(__file__))}/data/")
 
         print("EP%d_%s" % (epoch, str_code))
 
@@ -206,7 +242,7 @@ class BERTTrainer:
         if self.test_loss_info:
             df2 = pd.DataFrame(self.test_loss_info)
             df = pd.concat([df, df2])
-        for loss_name in ["lossD", "lossD_real", "lossD_fake", "lossG", "d_loss", "well_loss", "lossG_D"]:
+        for loss_name in ["well_loss1", "well_loss2", "lossG", "d_loss", "lossG_D"]:
             fig = px.line(df, x="step", y=loss_name, color='type', log_y=True)
             fig.write_html(save_path.replace(".html", f"_{loss_name}.html"))
 
