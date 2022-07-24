@@ -30,6 +30,7 @@
     </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\code_projects\python\TransGanInversion\test" />
+      <recent name="D:\code_projects\python\TransGanInversion\matlab" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -44,8 +45,8 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.test_train">
-    <configuration name="test_bert" type="PythonConfigurationType" factoryName="Python" temporary="true">
+  <component name="RunManager" selected="Python.test_gen_seismic">
+    <configuration name="plot_avo" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="TransGanInversion" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -57,7 +58,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test/test_bert.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test/plot_avo.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -66,7 +67,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="test_dataset" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration name="test_gen_seismic" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="TransGanInversion" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -78,7 +79,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test/test_dataset.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test/test_gen_seismic.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -151,19 +152,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.test_bert" />
-      <item itemvalue="Python.test_dataset" />
       <item itemvalue="Python.test_train" />
       <item itemvalue="Python.test_trans_inversion" />
       <item itemvalue="Python.test_model" />
+      <item itemvalue="Python.test_gen_seismic" />
+      <item itemvalue="Python.plot_avo" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.test_gen_seismic" />
+        <item itemvalue="Python.plot_avo" />
         <item itemvalue="Python.test_train" />
         <item itemvalue="Python.test_model" />
         <item itemvalue="Python.test_trans_inversion" />
-        <item itemvalue="Python.test_bert" />
-        <item itemvalue="Python.test_dataset" />
       </list>
     </recent_temporary>
   </component>
@@ -198,8 +199,18 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/test/test_model.py</url>
-          <line>33</line>
+          <line>28</line>
           <option name="timeStamp" value="56" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/test/plot_avo.py</url>
+          <line>57</line>
+          <option name="timeStamp" value="89" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/seismic/synthesis.py</url>
+          <line>51</line>
+          <option name="timeStamp" value="105" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

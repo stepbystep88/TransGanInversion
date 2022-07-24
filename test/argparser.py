@@ -38,5 +38,5 @@ def parse_input():
     args = parser.parse_args()
 
     print(args)
-    
+
     return args

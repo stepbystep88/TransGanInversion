@@ -1,15 +1,10 @@
-import argparse
-import os
-
 import torch
 from plotly.subplots import make_subplots
 from torch.utils.data import DataLoader
 
 import numpy as np
 from dataset.dataset import BERTDataset
-from model import TransInversion, Discriminator
 from test.argparser import parse_input
-from trainer import BERTTrainer
 import plotly.graph_objects as go
 
 

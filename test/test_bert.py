@@ -1,5 +1,6 @@
 from torch.utils.data import DataLoader
-from dataset import BERTDataset
+
+from dataset.dataset import BERTDataset
 from model import BERT
 
 train_file = 'D:/code_projects/matlab_projects/src/trans_gan_inversion/training_data.mat'
