@@ -7,7 +7,7 @@ class Synthesis:
     """
     AVO prestack synthesis tool
     """
-    def __init__(self, n_sample, theta_max=35.0, n_theta=21, wavelet_len=77, avo="akirich"):
+    def __init__(self, n_sample, theta_max=35.0, n_theta=21, wavelet_len=121, avo="akirich"):
         self.theta_min = 0.0
         self.theta_max = theta_max
         self.n_theta = n_theta
@@ -29,7 +29,7 @@ class Synthesis:
         generate model m， vp's shape is [n_trace, n_sample]
         """
         # return np.stack((np.log(vp), np.log(vs), np.log(rho * 1000)), axis=0)
-        return np.stack((np.log(vp), np.log(vs), np.log(rho * 1000)), axis=2)
+        return np.stack((np.log(vp), np.log(vs), np.log(rho * 1000)), axis=1)
         # return np.hstack((np.log(vp), np.log(vs), np.log(rho * 1000)))
 
     def gen_pre_angle_data(self, vp, vs, rho, freq, dt):
@@ -53,6 +53,24 @@ class Synthesis:
             di = G * m[i, :, :].ravel()
             di = di.reshape(self.n_sample, self.n_theta).astype(np.float32)
             d.append(di)
+
+        return d
+
+    def gen_pre_angle_data_single_trace(self, vp, vs, rho, freq, dt):
+        """
+        generate prestack angle-gather seismic data
+        :return:
+        """
+        vsvp = vs / vp
+        vsvp = vsvp.T
+
+        wav = self.gen_wavelet(freq, dt)
+        G = pylops.avo.prestack.PrestackLinearModelling(
+            wav, self.angles, vsvp=vsvp, nt0=self.n_sample, linearization=self.avo, explicit=False
+        )
+        m = self.gen_m(vp, vs, rho)
+        d = G * m.ravel()
+        d = d.reshape(self.n_sample, self.n_theta).astype(np.float32)
 
         return d
 

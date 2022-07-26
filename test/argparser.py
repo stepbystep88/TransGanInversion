@@ -20,6 +20,8 @@ def parse_input():
     parser.add_argument("-e", "--epochs", type=int, default=1000, help="number of epochs")
     parser.add_argument("-w", "--num_workers", type=int, default=0, help="dataloader worker size")
 
+    parser.add_argument("--n_theta", type=int, default=21, help="the number of theta")
+
     parser.add_argument("--with_cuda", type=int, default=True, help="training with CUDA: true, or false")
     parser.add_argument("--log_freq", type=int, default=10, help="printing loss every n iter: setting n")
     parser.add_argument("--cuda_devices", type=int, nargs='+', default=[0], help="CUDA device ids")

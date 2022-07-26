@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 
 from dataset.dataset import BERTDataset
 from model import TransInversion
-from seismic.synthesis import Synthesis
 from test.argparser import parse_input
 from trainer import BERTTrainer
 
@@ -17,7 +16,7 @@ def train():
     os.makedirs(output_model_path, exist_ok=True)
 
     print("Loading Train Dataset", args.train_file)
-    train_dataset = BERTDataset(args.train_file)
+    train_dataset = BERTDataset(args.train_file, mask_prob=0.2, dt=0.002, n_theta=args.n_theta)
 
     print("Loading Test Dataset", args.test_file)
     test_dataset = BERTDataset(args.test_file) if args.test_file is not None else None
@@ -27,15 +26,13 @@ def train():
     test_data_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers) \
         if test_dataset is not None else None
 
-    synthesiser = Synthesis(train_dataset.seq_len)
-
     print("Building BERT model")
-    generator = TransInversion(synthesiser.n_theta, train_dataset.seq_len, hidden=args.hidden,
+    generator = TransInversion(args.n_theta, train_dataset.seq_len, hidden=args.hidden,
                                n_layers=args.n_layers, n_decoder_layers=args.n_layers,
                                attn_heads=args.attn_heads, dropout=args.dropout)
 
     print("Creating BERT Trainer")
-    trainer = BERTTrainer(generator, synthesiser, args.hidden, args.attn_heads,
+    trainer = BERTTrainer(generator, args.hidden, args.attn_heads,
                           train_dataset.training_data.well_trans,
                           train_dataloader=train_data_loader, test_dataloader=test_data_loader,
                           lr=args.lr, betas=(args.adam_beta1, args.adam_beta2), weight_decay=args.weight_decay,

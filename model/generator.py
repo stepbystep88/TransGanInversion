@@ -30,7 +30,7 @@ class TransInversion(nn.Module):
 
         d_predict = self.d_decoder(d_encoding)
         well_predict = self.well_decoder(d_encoding, init_data)
-        well_predict_final = self.u_net(well_predict)
+        well_predict_final = self.u_net(well_predict, well_predict)
 
         return d_predict, well_predict, well_predict_final
 

@@ -207,11 +207,6 @@
           <line>57</line>
           <option name="timeStamp" value="89" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/trainer/pretrain.py</url>
-          <line>123</line>
-          <option name="timeStamp" value="114" />
-        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>

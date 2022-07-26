@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from model.utils import GELU
 from model.utils import AdaIn
 
 
@@ -9,7 +10,7 @@ class Block(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.conv1 = nn.Conv1d(in_ch, out_ch, 3)
-        self.relu = nn.ReLU()
+        self.relu = GELU()
         self.conv2 = nn.Conv1d(out_ch, out_ch, 3)
 
     def forward(self, x):
@@ -65,8 +66,8 @@ class UNet(nn.Module):
         self.head = nn.Conv1d(dec_chs[-1], out_channel, 1)
         self.adain = AdaIn()
 
-    def forward(self, x0):
-        x = x0.permute(0, 2, 1)
+    def forward(self, x, z):
+        x = x.permute(0, 2, 1)
         n, c, h = x.shape
 
         x = F.interpolate(x, (h*2,))
@@ -75,5 +76,5 @@ class UNet(nn.Module):
         out = self.head(out)
         out = F.interpolate(out, (h, ))
         out = out.permute(0, 2, 1)
-        out = self.adain(out, x0)
+        out = self.adain(out, z)
         return out

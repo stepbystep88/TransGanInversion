@@ -121,7 +121,7 @@ class BERTTrainer:
             well_label = data["well_data"]
             d_predict, well_predict1, well_predict2 = self.generator.forward(data["masked_d"], data["init_data"])
 
-            d_loss = self.mse_loss(data["d"], d_predict, )
+            d_loss = self.mse_loss(data["d"], d_predict)
             well_loss1 = self.mse_loss(well_label, well_predict1)
             well_loss2 = self.mse_loss(well_label, well_predict2)
 
