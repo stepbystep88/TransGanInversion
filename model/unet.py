@@ -2,6 +2,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from model.utils import AdaIn
+
 
 class Block(nn.Module):
     def __init__(self, in_ch, out_ch):
@@ -61,9 +63,10 @@ class UNet(nn.Module):
         self.encoder = Encoder(enc_chs)
         self.decoder = Decoder(dec_chs)
         self.head = nn.Conv1d(dec_chs[-1], out_channel, 1)
+        self.adain = AdaIn()
 
-    def forward(self, x):
-        x = x.permute(0, 2, 1)
+    def forward(self, x0):
+        x = x0.permute(0, 2, 1)
         n, c, h = x.shape
 
         x = F.interpolate(x, (h*2,))
@@ -71,5 +74,6 @@ class UNet(nn.Module):
         out = self.decoder(enc_ftrs[::-1][0], enc_ftrs[::-1][1:])
         out = self.head(out)
         out = F.interpolate(out, (h, ))
-
-        return out.permute(0, 2, 1)
+        out = out.permute(0, 2, 1)
+        out = self.adain(out, x0)
+        return out

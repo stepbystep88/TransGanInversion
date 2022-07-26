@@ -28,7 +28,8 @@ class Synthesis:
         """
         generate model m， vp's shape is [n_trace, n_sample]
         """
-        return np.stack((np.log(vp), np.log(vs), np.log(rho * 1000)), axis=1)
+        # return np.stack((np.log(vp), np.log(vs), np.log(rho * 1000)), axis=0)
+        return np.stack((np.log(vp), np.log(vs), np.log(rho * 1000)), axis=2)
         # return np.hstack((np.log(vp), np.log(vs), np.log(rho * 1000)))
 
     def gen_pre_angle_data(self, vp, vs, rho, freq, dt):
@@ -37,20 +38,20 @@ class Synthesis:
         :return:
         """
         n_trace = vp.shape[0]
-        wav = self.gen_wavelet(freq, dt)
+
         m = self.gen_m(vp, vs, rho)
         vsvp = vs / vp
         vsvp = vsvp.T
 
         d = []
-
         for i in range(n_trace):
+            wav = self.gen_wavelet(freq[i], dt)
             G = pylops.avo.prestack.PrestackLinearModelling(
                 wav, self.angles, vsvp=vsvp[:, i], nt0=self.n_sample, linearization=self.avo, explicit=False
             )
-            m = self.gen_m(vp[i, :], vs[i, :], rho[i, :])
-            di = G * m.ravel()
-            di = di.reshape(self.n_sample, self.n_theta)
+            # m = self.gen_m(vp[i, :], vs[i, :], rho[i, :])
+            di = G * m[i, :, :].ravel()
+            di = di.reshape(self.n_sample, self.n_theta).astype(np.float32)
             d.append(di)
 
         return d

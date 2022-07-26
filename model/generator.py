@@ -4,6 +4,7 @@ import numpy as np
 
 from model.transformer import TransformerEncoderBlock
 from model.unet import UNet
+from model.utils import AdaInLinear
 from .bert import BERT
 
 
@@ -61,14 +62,9 @@ class WellDecoder(nn.Module):
         self.blocks = nn.ModuleList(
             [TransformerEncoderBlock(hidden, attn_heads, hidden * 4, dropout) for _ in range(n_layers)])
         self.linear1 = nn.Sequential(
-            nn.Linear(hidden, out_channel),
-            nn.Tanh(),
-        )
-        self.linear2 = nn.Sequential(
-            nn.Linear(out_channel, hidden),
-            nn.GELU(),
             nn.Linear(hidden, out_channel)
         )
+        self.adain_linear = AdaInLinear(hidden, out_channel)
 
         mask = np.zeros((seq_len, seq_len))
         for i in range(seq_len):
@@ -77,19 +73,12 @@ class WellDecoder(nn.Module):
 
         self.mask = nn.Parameter(torch.Tensor(mask).unsqueeze(0).repeat(attn_heads, 1, 1))
 
-    def AdaIn(self, x, z):
-        var_z, mean_z = torch.var_mean(z, dim=1, keepdim=True)
-        var_x, mean_x = torch.var_mean(x, dim=1, keepdim=True)
-
-        return var_z * (x - mean_x) / (var_x + 1e-10) + mean_z
-
     def forward(self, x, z):
         for block in self.blocks:
             x = block(x, self.mask)
 
         x = self.linear1(x)
         x = x + z
-        x = self.AdaIn(x, z)
-        x = self.linear2(x)
+        x = self.adain_linear(x, z)
 
         return x

@@ -5,7 +5,7 @@ def parse_input():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-c", "--train_file", type=str, help="train dataset for train bert",
-                        default='D:/code_projects/matlab_projects/src/trans_gan_inversion/training_data.mat')
+                        default='D:/code_projects/matlab_projects/src/trans_gan_inversion/welldata_train.mat')
     parser.add_argument("-t", "--test_file", type=str, help="test set for evaluate train set",
                         default=None)
     # D:/code_projects/matlab_projects/src/trans_gan_inversion/test_data.mat'

@@ -45,7 +45,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.test_gen_seismic">
+  <component name="RunManager" selected="Python.test_train">
     <configuration name="plot_avo" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="TransGanInversion" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -160,9 +160,9 @@
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.test_train" />
         <item itemvalue="Python.test_gen_seismic" />
         <item itemvalue="Python.plot_avo" />
-        <item itemvalue="Python.test_train" />
         <item itemvalue="Python.test_model" />
         <item itemvalue="Python.test_trans_inversion" />
       </list>
@@ -208,9 +208,9 @@
           <option name="timeStamp" value="89" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/seismic/synthesis.py</url>
-          <line>51</line>
-          <option name="timeStamp" value="105" />
+          <url>file://$PROJECT_DIR$/trainer/pretrain.py</url>
+          <line>123</line>
+          <option name="timeStamp" value="114" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
