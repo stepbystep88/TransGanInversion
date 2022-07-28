@@ -17,7 +17,7 @@ def parse_input():
     parser.add_argument("-a", "--attn_heads", type=int, default=6, help="number of attention heads")
 
     parser.add_argument("-b", "--batch_size", type=int, default=16, help="number of batch_size")
-    parser.add_argument("-e", "--epochs", type=int, default=1000, help="number of epochs")
+    parser.add_argument("-e", "--epochs", type=int, default=10, help="number of epochs")
     parser.add_argument("-w", "--num_workers", type=int, default=0, help="dataloader worker size")
 
     parser.add_argument("--n_theta", type=int, default=21, help="the number of theta")

@@ -9,9 +9,9 @@ from model.utils import AdaIn
 class Block(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
-        self.conv1 = nn.Conv1d(in_ch, out_ch, 3)
+        self.conv1 = nn.Conv1d(in_ch, out_ch, 3, padding=1)
         self.relu = GELU()
-        self.conv2 = nn.Conv1d(out_ch, out_ch, 3)
+        self.conv2 = nn.Conv1d(out_ch, out_ch, 3, padding=1)
 
     def forward(self, x):
         return self.conv2(self.relu(self.conv1(x)))
@@ -64,17 +64,17 @@ class UNet(nn.Module):
         self.encoder = Encoder(enc_chs)
         self.decoder = Decoder(dec_chs)
         self.head = nn.Conv1d(dec_chs[-1], out_channel, 1)
-        self.adain = AdaIn()
+        # self.adain = AdaIn()
 
     def forward(self, x, z):
         x = x.permute(0, 2, 1)
         n, c, h = x.shape
 
-        x = F.interpolate(x, (h*2,))
+        # x = F.interpolate(x, (h*2,))
         enc_ftrs = self.encoder(x)
         out = self.decoder(enc_ftrs[::-1][0], enc_ftrs[::-1][1:])
         out = self.head(out)
         out = F.interpolate(out, (h, ))
         out = out.permute(0, 2, 1)
-        out = self.adain(out, z)
+        # out = self.adain(out, z)
         return out

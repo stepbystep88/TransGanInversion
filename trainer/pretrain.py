@@ -125,15 +125,24 @@ class BERTTrainer:
             well_loss1 = self.mse_loss(well_label, well_predict1)
             well_loss2 = self.mse_loss(well_label, well_predict2)
 
-            lossG = self.miu[0] * d_loss + self.miu[1] * (well_loss1 + well_loss2)
+            g_well_label, = torch.gradient(well_label, dim=1, edge_order=1)
+            g_well_loss2, = torch.gradient(well_predict2, dim=1, edge_order=1)
+            well_loss3 = self.mse_loss(g_well_label, g_well_loss2)
+
+            g2_well_label, = torch.gradient(well_label, dim=1, edge_order=2)
+            g2_well_loss2, = torch.gradient(well_predict2, dim=1, edge_order=2)
+            well_loss4 = self.mse_loss(g2_well_label, g2_well_loss2)
+
+            lossG = self.miu[0] * d_loss + self.miu[1] * (well_loss1 + well_loss2 +
+                                                          well_loss3 + well_loss4)
             if train:
                 self.optim_G.zero_grad()
                 lossG.backward()
                 self.optim_G.step_and_update_lr()
 
-            well_predict1 = well_predict1.cpu().detach().numpy()
-            well_predict2 = well_predict2.cpu().detach().numpy()
-            well_label = well_label.cpu().detach().numpy()
+            # well_predict1 = well_predict1.cpu().detach().numpy()
+            # well_predict2 = well_predict2.cpu().detach().numpy()
+            # well_label = well_label.cpu().detach().numpy()
 
             post_fix = {
                 "type": str_code,
@@ -144,12 +153,14 @@ class BERTTrainer:
                 "d_loss": d_loss.item(),
                 "well_loss1": well_loss1.item(),
                 "well_loss2": well_loss2.item(),
-                "min_predict1": well_predict1[:, :, 0].min(),
-                "max_predict1": well_predict1[:, :, 0].max(),
-                "min_predict2": well_predict2[:, :, 0].min(),
-                "max_predict2": well_predict2[:, :, 0].max(),
-                "min_label": well_label[:, :, 0].min(),
-                "max_label": well_label[:, :, 0].max()
+                "well_loss3": well_loss3.item(),
+                "well_loss4": well_loss4.item(),
+                # "min_predict1": well_predict1[:, :, 0].min(),
+                # "max_predict1": well_predict1[:, :, 0].max(),
+                # "min_predict2": well_predict2[:, :, 0].min(),
+                # "max_predict2": well_predict2[:, :, 0].max(),
+                # "min_label": well_label[:, :, 0].min(),
+                # "max_label": well_label[:, :, 0].max()
             }
 
             if train:
@@ -181,7 +192,7 @@ class BERTTrainer:
         if self.test_loss_info:
             df2 = pd.DataFrame(self.test_loss_info)
             df = pd.concat([df, df2])
-        for loss_name in ["well_loss1", "well_loss2", "lossG", "d_loss"]:
+        for loss_name in ["well_loss1", "well_loss2", "well_loss3", "well_loss4", "lossG", "d_loss"]:
             fig = px.line(df, x="step", y=loss_name, color='type', log_y=True)
             fig.write_html(save_path.replace(".html", f"_{loss_name}.html"))
 

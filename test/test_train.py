@@ -16,7 +16,7 @@ def train():
     os.makedirs(output_model_path, exist_ok=True)
 
     print("Loading Train Dataset", args.train_file)
-    train_dataset = BERTDataset(args.train_file, mask_prob=0.2, dt=0.002, n_theta=args.n_theta)
+    train_dataset = BERTDataset(args.train_file, mask_prob=0.2, dt=0.002, n_theta=args.n_theta, snr_range=(3, 20))
 
     print("Loading Test Dataset", args.test_file)
     test_dataset = BERTDataset(args.test_file) if args.test_file is not None else None
