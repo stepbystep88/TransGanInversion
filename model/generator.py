@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+from model.utils import GELU
 from model.transformer import TransformerEncoderBlock
 from model.unet import UNet
 from model.utils import AdaInLinear
@@ -65,6 +66,9 @@ class WellDecoder(nn.Module):
             nn.Linear(hidden, out_channel)
         )
         self.adain_linear = AdaInLinear(hidden, out_channel)
+        self.conv1 = nn.Conv1d(out_channel, 16, 3, padding=1)
+        self.relu = GELU()
+        self.conv2 = nn.Conv1d(16, out_channel, 3, padding=1)
 
         mask = np.zeros((seq_len, seq_len))
         for i in range(seq_len):
@@ -80,5 +84,9 @@ class WellDecoder(nn.Module):
         x = self.linear1(x)
         x = x + z
         x = self.adain_linear(x, z)
+
+        x = x.permute(0, 2, 1)
+        x = self.conv2(self.relu(self.conv1(x)))
+        x = x.permute(0, 2, 1)
 
         return x

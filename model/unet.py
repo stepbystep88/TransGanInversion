@@ -3,14 +3,13 @@ from torch import nn
 import torch.nn.functional as F
 
 from model.utils import GELU
-from model.utils import AdaIn
 
 
 class Block(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.conv1 = nn.Conv1d(in_ch, out_ch, 3, padding=1)
-        self.relu = GELU()
+        self.relu = nn.ReLU()
         self.conv2 = nn.Conv1d(out_ch, out_ch, 3, padding=1)
 
     def forward(self, x):

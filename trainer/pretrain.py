@@ -3,13 +3,11 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from dataset.gen_mask import gen_mask
 
 from trainer.optim_schedule import ScheduledOptim
 
 import tqdm
 import os
-import numpy as np
 import pandas as pd
 import plotly.express as px
 
@@ -122,45 +120,41 @@ class BERTTrainer:
             d_predict, well_predict1, well_predict2 = self.generator.forward(data["masked_d"], data["init_data"])
 
             d_loss = self.mse_loss(data["d"], d_predict)
-            well_loss1 = self.mse_loss(well_label, well_predict1)
-            well_loss2 = self.mse_loss(well_label, well_predict2)
+            well_loss1_0 = self.mse_loss(well_label, well_predict1)
+            well_loss2_0 = self.mse_loss(well_label, well_predict2)
 
             g_well_label, = torch.gradient(well_label, dim=1, edge_order=1)
-            g_well_loss2, = torch.gradient(well_predict2, dim=1, edge_order=1)
-            well_loss3 = self.mse_loss(g_well_label, g_well_loss2)
+            g_well_predict1, = torch.gradient(well_predict1, dim=1, edge_order=1)
+            g_well_predict2, = torch.gradient(well_predict2, dim=1, edge_order=1)
+            well_loss1_1 = self.mse_loss(g_well_label, g_well_predict1)
+            well_loss2_1 = self.mse_loss(g_well_label, g_well_predict2)
 
             g2_well_label, = torch.gradient(well_label, dim=1, edge_order=2)
-            g2_well_loss2, = torch.gradient(well_predict2, dim=1, edge_order=2)
-            well_loss4 = self.mse_loss(g2_well_label, g2_well_loss2)
+            g2_well_predict1, = torch.gradient(well_predict1, dim=1, edge_order=2)
+            g2_well_predict2, = torch.gradient(well_predict2, dim=1, edge_order=2)
+            well_loss1_2 = self.mse_loss(g2_well_label, g2_well_predict1)
+            well_loss2_2 = self.mse_loss(g2_well_label, g2_well_predict2)
 
-            lossG = self.miu[0] * d_loss + self.miu[1] * (well_loss1 + well_loss2 +
-                                                          well_loss3 + well_loss4)
+            total_loss = self.miu[0] * d_loss + self.miu[1] * (well_loss1_0 + well_loss1_1 + well_loss1_2 +
+                                                          well_loss2_0 + well_loss2_1 + well_loss2_2)
             if train:
                 self.optim_G.zero_grad()
-                lossG.backward()
+                total_loss.backward()
                 self.optim_G.step_and_update_lr()
-
-            # well_predict1 = well_predict1.cpu().detach().numpy()
-            # well_predict2 = well_predict2.cpu().detach().numpy()
-            # well_label = well_label.cpu().detach().numpy()
 
             post_fix = {
                 "type": str_code,
                 "epoch": epoch,
                 "step": epoch * len(data_iter) + i,
                 "iter": i,
-                "lossG": lossG.item(),
+                "lossG": total_loss.item(),
                 "d_loss": d_loss.item(),
-                "well_loss1": well_loss1.item(),
-                "well_loss2": well_loss2.item(),
-                "well_loss3": well_loss3.item(),
-                "well_loss4": well_loss4.item(),
-                # "min_predict1": well_predict1[:, :, 0].min(),
-                # "max_predict1": well_predict1[:, :, 0].max(),
-                # "min_predict2": well_predict2[:, :, 0].min(),
-                # "max_predict2": well_predict2[:, :, 0].max(),
-                # "min_label": well_label[:, :, 0].min(),
-                # "max_label": well_label[:, :, 0].max()
+                "well_loss1_0": well_loss1_0.item(),
+                "well_loss1_1": well_loss1_1.item(),
+                "well_loss1_2": well_loss1_2.item(),
+                "well_loss2_0": well_loss2_0.item(),
+                "well_loss2_1": well_loss2_1.item(),
+                "well_loss2_2": well_loss2_2.item()
             }
 
             if train:
@@ -192,7 +186,8 @@ class BERTTrainer:
         if self.test_loss_info:
             df2 = pd.DataFrame(self.test_loss_info)
             df = pd.concat([df, df2])
-        for loss_name in ["well_loss1", "well_loss2", "well_loss3", "well_loss4", "lossG", "d_loss"]:
+        for loss_name in ["well_loss1_0", "well_loss1_1", "well_loss1_2",
+                          "well_loss2_0", "well_loss2_1", "well_loss2_2"]:
             fig = px.line(df, x="step", y=loss_name, color='type', log_y=True)
             fig.write_html(save_path.replace(".html", f"_{loss_name}.html"))
 
