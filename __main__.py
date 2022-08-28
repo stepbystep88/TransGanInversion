@@ -58,7 +58,7 @@ def train():
     print("Training Start")
     for epoch in range(args.epochs):
         trainer.train(epoch)
-        trainer.save(epoch, args.output_path)
+        # trainer.save(epoch, args.output_path)
 
         if test_data_loader is not None:
             trainer.test(epoch)

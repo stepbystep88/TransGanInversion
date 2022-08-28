@@ -24,7 +24,7 @@ def parse_input():
 
     parser.add_argument("--with_cuda", type=int, default=True, help="training with CUDA: true, or false")
     parser.add_argument("--log_freq", type=int, default=10, help="printing loss every n iter: setting n")
-    parser.add_argument("--cuda_devices", type=int, nargs='+', default=[0], help="CUDA device ids")
+    parser.add_argument("--cuda_devices", type=int, nargs='+', default=[0, 1], help="CUDA device ids")
 
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate of adam")
     parser.add_argument("--weight_decay", type=float, default=0.01, help="weight_decay of adam")

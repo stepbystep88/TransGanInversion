@@ -68,4 +68,5 @@ def save_cmp_as_html(d_label, d_predict, d_masked,
             row=2, col=k + 1
         )
 
+    fig.update_layout(width=1500, height=2000)
     fig.write_html(f"{output_path}/cmp_real_predict.html")

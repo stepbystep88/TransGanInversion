@@ -1,3 +1,5 @@
+import pickle
+
 import torch
 import torch.nn as nn
 from torch.optim import Adam
@@ -72,6 +74,7 @@ class BERTTrainer:
         self.log_freq = log_freq
         self.miu = miu
         self.loss_save_path = loss_save_path
+        self.output_path = os.path.dirname(self.loss_save_path)
         self.train_loss_info = []
         self.test_loss_info = []
 
@@ -147,7 +150,7 @@ class BERTTrainer:
                 "epoch": epoch,
                 "step": epoch * len(data_iter) + i,
                 "iter": i,
-                "lossG": total_loss.item(),
+                "total_loss": total_loss.item(),
                 "d_loss": d_loss.item(),
                 "well_loss1_0": well_loss1_0.item(),
                 "well_loss1_1": well_loss1_1.item(),
@@ -171,7 +174,10 @@ class BERTTrainer:
                 save_cmp_as_html(data["d"], d_predict, data["masked_d"],
                                  self.well_trans, data["init_data"],
                                  well_label, well_predict1, well_predict2,
-                                 output_path=f"{os.path.dirname(os.path.dirname(__file__))}/data/")
+                                 output_path=self.output_path)
+
+            if (i % 200 == 0 and epoch < 2) or (i % 1000 == 0 and epoch >= 2):
+                self.save(epoch, iter=i)
 
         print("EP%d_%s" % (epoch, str_code))
 
@@ -186,12 +192,13 @@ class BERTTrainer:
         if self.test_loss_info:
             df2 = pd.DataFrame(self.test_loss_info)
             df = pd.concat([df, df2])
-        for loss_name in ["well_loss1_0", "well_loss1_1", "well_loss1_2",
+        for loss_name in ["d_loss", "total_loss",
+                          "well_loss1_0", "well_loss1_1", "well_loss1_2",
                           "well_loss2_0", "well_loss2_1", "well_loss2_2"]:
             fig = px.line(df, x="step", y=loss_name, color='type', log_y=True)
             fig.write_html(save_path.replace(".html", f"_{loss_name}.html"))
 
-    def save(self, epoch, file_path):
+    def save(self, epoch, iter=0):
         """
         Saving the current BERT model on file_path
 
@@ -199,7 +206,9 @@ class BERTTrainer:
         :param file_path: model output path which gonna be file_path+"ep%d" % epoch
         :return: final_output_path
         """
-        self.save_model(self.generator, epoch, f"{file_path}/generator.model.ep{epoch}")
+        self.save_model(self.generator, epoch, f"{self.output_path}/model_ep{epoch}_iter{iter}.model")
+        with open(f"{self.output_path}/train_loss_info.pickle", "wb") as fp:  # Pickling
+            pickle.dump(self.train_loss_info, fp)
 
     def save_model(self, model, epoch, output_path):
         torch.save(model.cpu(), output_path)
